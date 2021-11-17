@@ -1,5 +1,7 @@
 # FSRE-Depth
-This is a Python3 / PyTorch implementation of FSRE-Depth, as described in the following paper:
+This is my copy of::
+
+Python3 / PyTorch implementation of FSRE-Depth, as described in the following paper:
 
 > **Fine-grained Semantics-aware Representation Enhancement for Self-supervisedMonocular Depth Estimation**
 >![overview](https://user-images.githubusercontent.com/30494126/136926985-af8c3651-4503-402b-9677-f623f8b0fd95.PNG)
