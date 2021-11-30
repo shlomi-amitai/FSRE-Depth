@@ -8,7 +8,7 @@ from utils.depth_utils import BackprojectDepth, Project3D, disp_to_depth, SSIM, 
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-
+from my_utils import *
 
 class TrainerParallel(nn.Module):
     def __init__(self, options):
@@ -226,8 +226,12 @@ class TrainerParallel(nn.Module):
 
             # Apply automask in Monodepth2
             identity_reprojection_losses = torch.cat(identity_reprojection_losses, dim=1)
-            identity_reprojection_losses += torch.randn(identity_reprojection_losses.shape).cuda(
-                device=target.device) * 0.00001
+            if (target.device.type == 'cpu'):
+                identity_reprojection_losses += torch.randn(identity_reprojection_losses.shape) * 0.00001
+            else:
+                identity_reprojection_losses += torch.randn(identity_reprojection_losses.shape).cuda(
+                    device=target.device) * 0.00001
+
             combined = torch.cat([losses, identity_reprojection_losses], dim=1)
             to_optimise, idxs = torch.min(combined, dim=1, keepdim=True)
 
@@ -243,7 +247,7 @@ class TrainerParallel(nn.Module):
         scales = [0]
 
         for s in scales:
-            seg_target = inputs[("seg", 0, s)].long().squeeze(1)
+            seg_target = inputs[("seg", 0, s)].long().squeeze(1)  # TODO: shlomia; add mask to '0' segments
             seg_pred = outputs[("seg_logits", s)]
             weights = seg_target.sum(1, keepdim=True).float()
             ignore_mask = (weights == 0)

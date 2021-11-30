@@ -5,6 +5,8 @@ from utils import *
 from utils.seg_utils import decode_seg_map
 from utils.depth_utils import compute_depth_errors
 from datasets.kitti_dataset import KittiDataset
+from datasets.sc_dataset import SCDataset
+from datasets.ucanyon_dataset import UCanyonDataset
 import os
 import time
 import torch
@@ -19,7 +21,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 def reduce_tensor(tensor, world_size):
     rt = tensor.clone()
-    dist.all_reduce(rt, op=dist.ReduceOp.SUM)
+    # dist.all_reduce(rt, op=dist.ReduceOp.SUM)
     rt /= world_size
     return rt
 
@@ -35,6 +37,7 @@ class Trainer:
         assert self.opt.width % 32 == 0, "'width' must be a multiple of 32"
 
         self.trainer = TrainerParallel(options)
+        self.device = torch.device("cpu" if self.opt.no_cuda else "cuda")
         self.model_optimizer = optim.Adam(self.trainer.parameters_to_train, self.opt.learning_rate)
         self.epoch = 0
         self.step = 0
@@ -46,6 +49,7 @@ class Trainer:
 
         print("Training model named:\n  ", self.opt.model_name)
         print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
+        print("Training is using:\n  ", self.device)
 
         # data
         fpath = os.path.join(os.path.dirname(__file__), "splits", self.opt.split, "{}_files.txt")
@@ -53,16 +57,16 @@ class Trainer:
         train_filenames = readlines(fpath.format("train"))
 
         val_filenames = readlines(fpath.format("val"))
-        train_dataset = KittiDataset(
-            self.opt.height, self.opt.width,
-            self.opt.frame_ids, train_filenames, is_train=True,
-            num_scales=len(self.opt.scales))
+        if self.opt.dataset=='uc':
+            train_dataset = UCanyonDataset(
+	            self.opt.height, self.opt.width,
+	            self.opt.frame_ids, train_filenames, data_path=self.opt.data_path, is_train=True,
+	            num_scales=len(self.opt.scales))
 
-        val_dataset = KittiDataset(
-            self.opt.height, self.opt.width,
-            self.opt.frame_ids, val_filenames, is_train=False,
-            num_scales=len(self.opt.scales)
-           )
+            val_dataset = UCanyonDataset(
+	            self.opt.height, self.opt.width,
+	            self.opt.frame_ids, val_filenames, data_path=self.opt.data_path, is_train=False,
+	            num_scales=len(self.opt.scales))
         if self.opt.local_rank == 0:
             self.writers = {}
             for mode in ["train", "val"]:
@@ -75,26 +79,38 @@ class Trainer:
         print("There are {:d} training items and {:d} validation items\n".format(
             len(train_dataset), len(val_dataset)))
 
-        torch.cuda.set_device(self.opt.local_rank)
-        dist.init_process_group(backend='nccl')
-        self.world_size = dist.get_world_size()
-        print("WORLD SIZE: ", self.world_size)
-        self.trainer = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.trainer)
-        self.trainer = self.trainer.cuda()
-        print(f'PROC {self.opt.local_rank}: LOAD MODEL ON GPU {next(self.trainer.parameters()).device} ')
-        self.trainer = DDP(self.trainer, device_ids=[self.opt.local_rank],
-                           output_device=self.opt.local_rank, find_unused_parameters=True)
-        train_sampler = DistributedSampler(train_dataset)
-        val_sampler = DistributedSampler(val_dataset, shuffle=False)
-        self.train_loader = DataLoader(
-            train_dataset, self.opt.batch_size,
-            num_workers=self.opt.batch_size, pin_memory=True, drop_last=True, sampler=train_sampler)
-        self.val_loader = DataLoader(
-            val_dataset, self.opt.batch_size, False,
-            num_workers=self.opt.batch_size, pin_memory=True, drop_last=True, sampler=val_sampler)
+        if self.device=='cuda':
+            torch.cuda.set_device(self.opt.local_rank)
+            dist.init_process_group(backend='nccl')
+            self.world_size = dist.get_world_size()
+            print("WORLD SIZE: ", self.world_size)
+            self.trainer = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.trainer)
+            self.trainer = self.trainer.cuda()
+            print(f'PROC {self.opt.local_rank}: LOAD MODEL ON GPU {next(self.trainer.parameters()).device} ')
+            self.trainer = DDP(self.trainer, device_ids=[self.opt.local_rank],
+                            output_device=self.opt.local_rank, find_unused_parameters=True)
+
+            train_sampler = DistributedSampler(train_dataset)
+            val_sampler = DistributedSampler(val_dataset, shuffle=False)
+            self.train_loader = DataLoader(
+                train_dataset, self.opt.batch_size,
+                num_workers=self.opt.batch_size, pin_memory=True, drop_last=True, sampler=train_sampler)
+            self.val_loader = DataLoader(
+                val_dataset, self.opt.batch_size, False,
+                num_workers=self.opt.batch_size, pin_memory=True, drop_last=True, sampler=val_sampler)
+
+        else:
+            self.train_loader = DataLoader(
+                train_dataset, self.opt.batch_size, shuffle=True, 
+                num_workers=0, pin_memory=True, drop_last=True)
+            self.val_loader = DataLoader(
+                val_dataset, self.opt.batch_size, False,
+                num_workers=0, pin_memory=True, drop_last=True)
+            self.world_size=1
+        
         print(f'PROC {self.opt.local_rank}: SET TRAIN LOADER. SIZE {len(self.train_loader)}')
         print(f'PROC {self.opt.local_rank}: SET VAL LOADER. SIZE {len(self.val_loader)}')
-
+        
         num_train_samples = len(train_filenames)
         self.num_total_steps = num_train_samples // self.opt.batch_size // self.world_size * self.opt.num_epochs
         if self.opt.local_rank == 0:
@@ -150,7 +166,7 @@ class Trainer:
 
         for batch_idx, inputs in enumerate(self.train_loader):
             for key, ipt in inputs.items():
-                inputs[key] = ipt.cuda()
+                inputs[key] = ipt.to(self.device)
             data_loading_time += (time.time() - before_op_time)
             before_op_time = time.time()
 
@@ -207,7 +223,7 @@ class Trainer:
         with torch.no_grad():
             for batch_idx, inputs in enumerate(self.val_loader):
                 for key, ipt in inputs.items():
-                    inputs[key] = ipt.cuda()
+                    inputs[key] = ipt.to(self.device)
                 losses, outputs = self.trainer(inputs)
 
                 for loss_type in losses:
@@ -403,7 +419,7 @@ class Trainer:
             for state in self.model_optimizer.state.values():
                 for k, v in state.items():
                     if isinstance(v, torch.Tensor):
-                        state[k] = v.cuda()
+                        state[k] = v.to(self.device)
         else:
             print("Cannot find Adam weights so Adam is randomly initialized")
 

@@ -28,13 +28,13 @@ class Options:
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
-                                 choices=["eigen_zhou", "eigen_full", "odom", "benchmark", "test"],
+                                 choices=["uc_lite", "uc", "sc","eigen_zhou", "eigen_full", "odom", "benchmark", "test"],
                                  default="eigen_zhou")
         self.parser.add_argument("--dataset",
                                  type=str,
                                  help="dataset to train on",
                                  default="kitti",
-                                 choices=["kitti", "kitti_odom", "kitti_depth", "kitti_test"])
+                                 choices=["uc", "sc", "kitti", "kitti_odom", "kitti_depth", "kitti_test"])
         self.parser.add_argument("--height",
                                  type=int,
                                  help="input image height",
@@ -78,6 +78,8 @@ class Options:
                                  default=1,
                                  help='use ImageNet pretrained weight for ResNet encoder')
         # OPTIMIZATION options
+
+        self.parser.add_argument("--no_cuda", action='store_true', default=False, help='disable cuda')
 
         # Please use two gpus to set total batch size as 12, or use one gpu and set change option into 12
         self.parser.add_argument("--batch_size",
@@ -139,7 +141,7 @@ class Options:
                                  type=str,
                                  default="eigen",
                                  choices=[
-                                     "eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"],
+                                     "uc", "sc", "eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"],
                                  help="which split to run eval on")
         self.parser.add_argument("--no_eval",
                                  help="if set disables evaluation",
