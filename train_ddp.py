@@ -49,7 +49,7 @@ class Trainer:
 
         print("Training model named:\n  ", self.opt.model_name)
         print("Models and tensorboard events files are saved to:\n  ", self.opt.log_dir)
-        print("Training is using:\n  ", self.device)
+        print("Training is using:\n  ", self.device.type)
 
         # data
         fpath = os.path.join(os.path.dirname(__file__), "splits", self.opt.split, "{}_files.txt")
@@ -79,7 +79,7 @@ class Trainer:
         print("There are {:d} training items and {:d} validation items\n".format(
             len(train_dataset), len(val_dataset)))
 
-        if self.device=='cuda':
+        if self.device.type=='cuda':
             torch.cuda.set_device(self.opt.local_rank)
             dist.init_process_group(backend='nccl')
             self.world_size = dist.get_world_size()
