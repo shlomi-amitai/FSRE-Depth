@@ -4,7 +4,7 @@ from trainer_parallel import TrainerParallel
 from utils import *
 from utils.seg_utils import decode_seg_map
 from utils.depth_utils import compute_depth_errors
-from datasets.kitti_dataset import KittiDataset
+# from datasets.kitti_dataset import KittiDataset
 from datasets.sc_dataset import SCDataset
 from datasets.ucanyon_dataset import UCanyonDataset
 import os
