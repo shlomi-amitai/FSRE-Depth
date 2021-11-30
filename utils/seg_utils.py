@@ -10,7 +10,7 @@ palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
 
 def decode_seg_map(seg_map, num_classes=19):
     input_shape = seg_map.shape
-    seg_map = seg_map.flatten()
+    seg_map = seg_map.flatten().type(torch.uint8)
     empty = torch.stack([torch.zeros(seg_map.shape) for _ in range(3)])
 
     for i in torch.unique(seg_map).data.cpu():

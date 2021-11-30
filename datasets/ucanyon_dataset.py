@@ -272,7 +272,8 @@ class UCanyonDataset(data.Dataset):
         except:
             return None
         depth_gt = depth_gt.resize(self.full_res_shape, pil.NEAREST)
-        depth_gt = np.array(depth_gt).astype(np.float32)
+        depth_gt = np.array(depth_gt).astype(np.uint8)
+		depth_gt[depth_gt>18]=18
         # depth_gt = preProcessDepth(depth_gt)
 
         if do_flip:

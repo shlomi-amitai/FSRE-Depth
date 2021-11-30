@@ -252,6 +252,7 @@ class TrainerParallel(nn.Module):
             weights = seg_target.sum(1, keepdim=True).float()
             ignore_mask = (weights == 0)
             weights[ignore_mask] = 1
+            seg_target[seg_target>18]=18
             seg_loss = F.cross_entropy(seg_pred, seg_target, reduction='none')
             total_loss += seg_loss.mean() / (2 ** s)
 

@@ -143,7 +143,8 @@ class Trainer:
 
             if self.opt.local_rank == 0:
                 self.save_model()
-            dist.barrier()
+            if self.device.type!='cpu':
+                dist.barrier()
 
             if isinstance(self.trainer, DDP):
                 self.trainer.module.epoch += 1
