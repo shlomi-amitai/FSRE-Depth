@@ -28,13 +28,13 @@ class Options:
         self.parser.add_argument("--split",
                                  type=str,
                                  help="which training split to use",
-                                 choices=["uc_lite", "uc", "sc","eigen_zhou", "eigen_full", "odom", "benchmark", "test"],
+                                 choices=["flatiron", "uc_lite", "uc", "sc","eigen_zhou", "eigen_full", "odom", "benchmark", "test"],
                                  default="eigen_zhou")
         self.parser.add_argument("--dataset",
                                  type=str,
                                  help="dataset to train on",
                                  default="kitti",
-                                 choices=["uc", "sc", "kitti", "kitti_odom", "kitti_depth", "kitti_test"])
+                                 choices=["flatiron","uc", "sc", "kitti", "kitti_odom", "kitti_depth", "kitti_test"])
         self.parser.add_argument("--height",
                                  type=int,
                                  help="input image height",
@@ -141,7 +141,7 @@ class Options:
                                  type=str,
                                  default="eigen",
                                  choices=[
-                                     "uc", "sc", "eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"],
+                                     "flatiron","uc", "sc", "eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"],
                                  help="which split to run eval on")
         self.parser.add_argument("--no_eval",
                                  help="if set disables evaluation",
