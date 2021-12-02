@@ -49,7 +49,8 @@ def toNumpy(tensorIm):
     im = np.squeeze(tensorIm.cpu().detach().numpy())
     if im.ndim == 3:
         im = im.transpose((1, 2, 0))
-
+    if im.ndim == 4:
+        im = im.transpose((0, 2, 3, 1))
     return im
 
 

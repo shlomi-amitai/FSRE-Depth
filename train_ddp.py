@@ -1,3 +1,4 @@
+from genericpath import exists
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 from trainer_parallel import TrainerParallel
@@ -17,8 +18,8 @@ from torch import distributed as dist
 from datetime import datetime
 from torch.utils.data.distributed import DistributedSampler as DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
-
-
+from my_utils import *
+import matplotlib.pyplot as plt
 def reduce_tensor(tensor, world_size):
     rt = tensor.clone()
     # dist.all_reduce(rt, op=dist.ReduceOp.SUM)
@@ -239,6 +240,18 @@ class Trainer:
 
                 # if "depth_gt" in inputs:
                 #     self.compute_depth_losses(inputs, outputs, val_loss)
+
+                if (self.epoch) % 5 == 0:
+                    plt.set_cmap('jet')
+                    saveDir = os.path.join(self.log_path, 'imgs')
+                    if not os.path.exists(saveDir):
+                        os.makedirs(saveDir)
+                    for j in range(self.opt.batch_size):
+                        outPred = toNumpy((normalize_image(outputs['disp', 0])*255)).astype(np.uint8)
+                        inputColor = toNumpy(inputs['color', 0, 0]*255).astype(np.uint8)
+                        plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), inputColor)
+                        plt.imsave(saveDir + "/frame_{:06d}_disp.bmp".format(batch_idx+j), outPred)
+
 
             if self.opt.local_rank == 0:
                 for key in val_loss:

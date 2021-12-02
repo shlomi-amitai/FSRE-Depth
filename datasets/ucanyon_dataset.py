@@ -175,7 +175,7 @@ class UCanyonDataset(data.Dataset):
 
         self.preprocess(inputs, color_aug)
 
-        if self.load_depth:
+        if self.load_depth or self.is_train:
             depth_gt = self.get_depth(folder, frame_index, side, do_flip)
             inputs["depth_gt"] = np.expand_dims(depth_gt, 0)
             inputs["depth_gt"] = torch.from_numpy(inputs["depth_gt"].astype(np.float32))
@@ -216,6 +216,21 @@ class UCanyonDataset(data.Dataset):
             self.data_path, 'imgs',
             f_str)
         return image_path
+
+    def get_depth(self, folder, frame_index, side, do_flip):
+        depth_path = self.get_depth_path(folder, frame_index, side)
+        try:
+            depth_gt = pil.open(depth_path)
+        except:
+            return None
+        depth_gt = depth_gt.resize(self.full_res_shape, pil.NEAREST)
+        depth_gt = np.array(depth_gt).astype(np.uint8)
+        # depth_gt = preProcessDepth(depth_gt)
+
+        if do_flip:
+            depth_gt = np.fliplr(depth_gt)
+
+        return depth_gt 
 
     # def get_depth(self, folder, frame_index, side, do_flip):
     #     calib_path = os.path.join(self.data_path, folder.split("/")[0])

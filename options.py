@@ -139,9 +139,7 @@ class Options:
                                  help="optional path to a .npy disparities file to evaluate")
         self.parser.add_argument("--eval_split",
                                  type=str,
-                                 default="eigen",
-                                 choices=[
-                                     "flatiron","uc", "sc", "eigen", "eigen_benchmark", "benchmark", "odom_9", "odom_10"],
+                                 default="uc",
                                  help="which split to run eval on")
         self.parser.add_argument("--no_eval",
                                  help="if set disables evaluation",
@@ -150,6 +148,10 @@ class Options:
                                  help="if set assume we are loading eigen results from npy but "
                                       "we want to evaluate using the new benchmark.",
                                  action="store_true")
+        self.parser.add_argument("--num_workers",
+                                 type=float,
+                                 help="num_workers",
+                                 default=6)                    
 
         self.parser.add_argument("--local_rank", type=int, default=0)
 

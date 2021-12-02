@@ -15,6 +15,15 @@ def normalize_image(x):
     return (x - mi) / d
 
 
+def normalize_numpy(x):
+    """Rescale image pixels to span range [0, 1]
+    """
+    ma = (x.max())
+    mi = (x.min())
+    d = ma - mi if ma != mi else 1e5
+    return (x - mi) / d
+
+
 def sec_to_hm(t):
     """Convert time in seconds to time in hours, minutes and seconds
     e.g. 10239 -> (2, 50, 39)

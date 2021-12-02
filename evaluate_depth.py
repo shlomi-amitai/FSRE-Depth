@@ -5,12 +5,13 @@ from networks.depth_decoder import DepthDecoder
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from utils import readlines
+from utils import readlines, normalize_numpy
 from options import Options
 from datasets.kitti_dataset import KittiDataset
+from datasets.ucanyon_dataset import UCanyonDataset
 from utils.depth_utils import disp_to_depth
 from networks.cma import CMA
-
+from my_utils import *
 cv2.setNumThreads(0)  # This speeds up evaluation 5x on our unix systems (OpenCV 3.3.1)
 
 splits_dir = os.path.join(os.path.dirname(__file__), "splits")
@@ -47,6 +48,7 @@ def evaluate(opt):
     """
     MIN_DEPTH = 1e-3
     MAX_DEPTH = 80
+    device = torch.device("cpu" if opt.no_cuda else "cuda")
 
     assert sum((opt.eval_mono, opt.eval_stereo)) == 1, \
         "Please choose mono or stereo evaluation by setting either --eval_mono or --eval_stereo"
@@ -64,10 +66,10 @@ def evaluate(opt):
         decoder_path = os.path.join(opt.load_weights_folder, "depth.pth")
 
         encoder_dict = torch.load(encoder_path)
-        dataset = KittiDataset(encoder_dict['height'], encoder_dict['width'],
-                               [0], filenames, data_path=opt.data_path, is_train=False, fix_K=opt.fix_K
+        dataset = UCanyonDataset(encoder_dict['height'], encoder_dict['width'],
+                               [0], filenames, data_path=opt.data_path, is_train=False
                                )
-        dataloader = DataLoader(dataset, 16, shuffle=False, num_workers=12,
+        dataloader = DataLoader(dataset, 16, shuffle=False, num_workers=opt.num_workers,
                                 pin_memory=True, drop_last=False)
         encoder = ResnetEncoder(num_layers=opt.num_layers)
 
@@ -83,11 +85,12 @@ def evaluate(opt):
         encoder.load_state_dict({k: v for k, v in encoder_dict.items() if k in model_dict})
         depth_decoder.load_state_dict(torch.load(decoder_path))
 
-        encoder.cuda()
+        encoder.to(device)
         encoder.eval()
-        depth_decoder.cuda()
+        depth_decoder.to(device)
         depth_decoder.eval()
         pred_disps = []
+        input_colors = []
         pred_segs = None
         models = {}
 
@@ -99,19 +102,21 @@ def evaluate(opt):
         with torch.no_grad():
             for data in dataloader:
                 for key in data:
-                    data[key] = data[key].cuda()
-                input_color = data[("color", 0, 0)]
+                    data[key] = data[key].to(device)
+                input_color = data[("color", 0, 0)].to(device)
                 features = models['encoder'](input_color)
                 if not opt.no_cma:
-                    output = models['depth'](features, mode='depth')
+                    output = models['depth'](features)
                 else:
                     output = models["depth"](features)
-                pred_disp = output[("disp", 0)]
+                pred_disp = output[0][("disp", 0)]
                 pred_disp, _ = disp_to_depth(pred_disp, opt.min_depth, opt.max_depth)
                 pred_disp = pred_disp.cpu()[:, 0].numpy()
                 pred_disps.append(pred_disp)
+                input_colors.append(toNumpy(input_color))
 
         pred_disps = np.concatenate(pred_disps)
+        input_colors = np.concatenate(input_colors)
     else:
         # Load predictions from file
         print("-> Loading predictions from {}".format(opt.ext_disp_to_eval))
@@ -126,20 +131,24 @@ def evaluate(opt):
         print("-> Evaluation disabled. Done.")
         quit()
 
-    elif opt.eval_split == 'benchmark':
+    elif opt.eval_split == 'benchmark' or opt.eval_split == 'uc' or opt.eval_split == 'uc_lite' :
         save_dir = os.path.join(opt.load_weights_folder, "benchmark_predictions")
         print("-> Saving out benchmark predictions to {}".format(save_dir))
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
+        plt.set_cmap('jet')
         for idx in range(len(pred_disps)):
-            disp_resized = cv2.resize(pred_disps[idx], (1216, 352))
+            disp_resized = cv2.resize(pred_disps[idx], (opt.width, opt.height))
             # depth = STEREO_SCALE_FACTOR * 5.2229753 / disp_resized
+            outPred = (normalize_numpy(pred_disps[idx])*255).astype(np.uint8)
+            inputColor = input_colors[idx]
             depth = 32.779243 / disp_resized
-            depth = np.clip(depth, 0, 80)
-            depth = np.uint16(depth * 256)
+            depth = np.clip(depth, 0, 80)/10
+            depth = np.uint8(depth * 256)
             save_path = os.path.join(save_dir, "{:010d}.png".format(idx))
-            cv2.imwrite(save_path, depth)
+            plt.imsave(save_dir + "/frame_{:06d}_color.bmp".format(idx), inputColor)
+            plt.imsave(save_dir + "/frame_{:06d}_disp.bmp".format(idx), outPred)
 
         print("-> No ground truth is available for the KITTI benchmark, so not evaluating. Done.")
         quit()
