@@ -248,9 +248,12 @@ class Trainer:
                         os.makedirs(saveDir)
                     for j in range(self.opt.batch_size):
                         outPred = toNumpy((normalize_image(outputs['disp', 0])*255)).astype(np.uint8)
+                        logits = outputs[("seg_logits", 0)].argmax(dim=1, keepdim=True).float()
+                        outSeg = toNumpy((normalize_image(logits)*255)).astype(np.uint8)
                         inputColor = toNumpy(inputs['color', 0, 0]*255).astype(np.uint8)
                         plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), inputColor)
-                        plt.imsave(saveDir + "/frame_{:06d}_disp.bmp".format(batch_idx+j), outPred)
+                        plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), inputColor)
+                        plt.imsave(saveDir + "/frame_{:06d}_outSeg.bmp".format(batch_idx+j), outSeg)
 
 
             if self.opt.local_rank == 0:

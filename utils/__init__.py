@@ -23,6 +23,15 @@ def normalize_numpy(x):
     d = ma - mi if ma != mi else 1e5
     return (x - mi) / d
 
+def normalize_tensor(x):
+    """Rescale image pixels to span range [0, 1]
+    """
+    ma = (x.max())
+    mi = (x.min())
+    d = ma - mi if ma != mi else 1e5
+    return (x - mi) / d
+
+
 
 def sec_to_hm(t):
     """Convert time in seconds to time in hours, minutes and seconds

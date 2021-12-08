@@ -1,6 +1,7 @@
 import torch
 from collections import namedtuple
-
+from my_utils import *
+from utils import *
 palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
            153, 153, 153, 250, 170, 30,
            220, 220, 0, 107, 142, 35, 152, 251, 152, 70, 130, 180, 220, 20, 60,
@@ -9,20 +10,24 @@ palette = [128, 64, 128, 244, 35, 232, 70, 70, 70, 102, 102, 156, 190, 153, 153,
 
 
 def decode_seg_map(seg_map, num_classes=19):
-    input_shape = seg_map.shape
-    seg_map = seg_map.flatten().type(torch.uint8)
-    empty = torch.stack([torch.zeros(seg_map.shape) for _ in range(3)])
+    plt.set_cmap('jet') 
+    outSeg = (normalize_tensor(seg_map)*255)
 
-    for i in torch.unique(seg_map).data.cpu():
-        i = int(i)
-        seg_map = seg_map.flatten()
+    # input_shape = seg_map.shape
+    # seg_map = seg_map.flatten().type(torch.uint8)
+    # empty = torch.stack([torch.zeros(seg_map.shape) for _ in range(3)])
 
-        mask = seg_map == i
-        for c in range(3):
-            empty[c][mask] = palette[3 * i + c]
-    empty = empty.view(3, *input_shape[1:])
-    return empty.byte()
+    # for i in torch.unique(seg_map).data.cpu():
+    #     i = int(i)
+    #     seg_map = seg_map.flatten()
 
+    #     mask = seg_map == i
+    #     for c in range(3):
+    #         empty[c][mask] = palette[3 * i + c]
+    # empty = empty.view(3, *input_shape[1:])
+    # return empty.byte()
+
+    return outSeg
 
 Label = namedtuple('Label', [
 
