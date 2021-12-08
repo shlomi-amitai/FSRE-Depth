@@ -246,15 +246,18 @@ class Trainer:
                     saveDir = os.path.join(self.log_path, 'imgs')
                     if not os.path.exists(saveDir):
                         os.makedirs(saveDir)
+                    inputColor = toNumpy(inputs['color', 0, 0]*255).astype(np.uint8)
+                    outPred = toNumpy((normalize_image(outputs['disp', 0])*255)).astype(np.uint8)
+                    logits = outputs[("seg_logits", 0)].argmax(dim=1, keepdim=True).float()
                     for j in range(self.opt.batch_size):
-                        outPred = toNumpy((normalize_image(outputs['disp', 0])*255)).astype(np.uint8)
-                        if self.opt.semantic_distil:
-                            logits = outputs[("seg_logits", 0)].argmax(dim=1, keepdim=True).float()
-                            outSeg = toNumpy((normalize_image(logits)*255)).astype(np.uint8)
+                        currPred = outPred[:,:,j]
+                        currColor = inputColor[j,:]
+                        if self.opt.semantic_distil:  
+                            outSeg = toNumpy((normalize_image(logits[j,:])*255)).astype(np.uint8)
                             plt.imsave(saveDir + "/frame_{:06d}_outSeg.bmp".format(batch_idx+j), outSeg)
-                        inputColor = toNumpy(inputs['color', 0, 0]*255).astype(np.uint8)
-                        plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), inputColor)
-                        plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), inputColor)
+                        
+                        plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), currColor)
+                        plt.imsave(saveDir + "/frame_{:06d}_pred.bmp".format(batch_idx+j), currPred)
                         
 
 
