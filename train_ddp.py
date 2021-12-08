@@ -26,6 +26,7 @@ def reduce_tensor(tensor, world_size):
     rt /= world_size
     return rt
 
+full_res_shape = (608, 968) # true for uc or flatrion
 
 class Trainer:
     def __init__(self, options):
@@ -44,6 +45,7 @@ class Trainer:
         self.step = 0
         self.is_best = False
         self.best_loss = 1e9
+        self.use_depth = options.use_depth
 
         if self.opt.load_weights_folder is not None:
             self.load_model()
@@ -62,12 +64,12 @@ class Trainer:
             train_dataset = UCanyonDataset(
 	            self.opt.height, self.opt.width,
 	            self.opt.frame_ids, train_filenames, data_path=self.opt.data_path, is_train=True,
-	            num_scales=len(self.opt.scales))
+	            num_scales=len(self.opt.scales), load_depth=self.opt.load_depth)
 
             val_dataset = UCanyonDataset(
 	            self.opt.height, self.opt.width,
 	            self.opt.frame_ids, val_filenames, data_path=self.opt.data_path, is_train=False,
-	            num_scales=len(self.opt.scales))
+	            num_scales=len(self.opt.scales), load_depth=self.opt.load_depth)
         if self.opt.local_rank == 0:
             self.writers = {}
             for mode in ["train", "val"]:
@@ -238,8 +240,8 @@ class Trainer:
                         for loss_type in val_loss:
                             val_loss[loss_type] += float(losses[loss_type].data.mean())
 
-                # if "depth_gt" in inputs:
-                #     self.compute_depth_losses(inputs, outputs, val_loss)
+                if "depth_gt" in inputs and self.use_depth:
+                    self.compute_depth_losses(inputs, outputs, val_loss)
 
                 if (self.epoch) % 5 == 0:
                     plt.set_cmap('jet')
@@ -247,15 +249,21 @@ class Trainer:
                     if not os.path.exists(saveDir):
                         os.makedirs(saveDir)
                     inputColor = toNumpy(inputs['color', 0, 0]*255).astype(np.uint8)
+                    
                     outPred = toNumpy((normalize_image(outputs['disp', 0])*255)).astype(np.uint8)
-                    logits = outputs[("seg_logits", 0)].argmax(dim=1, keepdim=True).float()
+                    
                     for j in range(self.opt.batch_size):
                         currPred = outPred[:,:,j]
                         currColor = inputColor[j,:]
                         if self.opt.semantic_distil:  
+                            logits = outputs[("seg_logits", 0)].argmax(dim=1, keepdim=True).float()
                             outSeg = toNumpy((normalize_image(logits[j,:])*255)).astype(np.uint8)
                             plt.imsave(saveDir + "/frame_{:06d}_outSeg.bmp".format(batch_idx+j), outSeg)
-                        
+                        if self.opt.load_depth:
+                            gt_depth = (inputs['depth_gt'])
+                            currGTDepth = toNumpy((normalize_image(gt_depth[j,:])*255)).astype(np.uint8)
+                            plt.imsave(saveDir + "/frame_{:06d}_gtDepth.bmp".format(batch_idx+j), currGTDepth)
+
                         plt.imsave(saveDir + "/frame_{:06d}_color.bmp".format(batch_idx+j), currColor)
                         plt.imsave(saveDir + "/frame_{:06d}_pred.bmp".format(batch_idx+j), currPred)
                         
@@ -283,7 +291,7 @@ class Trainer:
         """
         depth_pred = outputs[("depth", 0, 0)]
         depth_pred = torch.clamp(F.interpolate(
-            depth_pred, [375, 1242], mode="bilinear", align_corners=False), 1e-3, 80)
+            depth_pred, full_res_shape, mode="bilinear", align_corners=False), 1e-3, 80)
         depth_pred = depth_pred.detach()
 
         depth_gt = inputs["depth_gt"]

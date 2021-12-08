@@ -46,6 +46,7 @@ class UCanyonDataset(data.Dataset):
                  is_train=False,
                  img_ext='.png',
                  num_scales=1,
+                 load_depth=False,
                  ):
         super(UCanyonDataset, self).__init__()
         self.full_res_shape = (968, 608)
@@ -69,6 +70,7 @@ class UCanyonDataset(data.Dataset):
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]], dtype=np.float32)
 
+        self.load_depth = load_depth
         self.resize_img = {}
         self.resize_seg = {}
         for i in range(self.num_scales):
@@ -78,11 +80,6 @@ class UCanyonDataset(data.Dataset):
 
             self.resize_seg[i] = transforms.Resize((self.height // s, self.width // s),
                                                    interpolation=Image.BILINEAR)
-        if is_train:
-            self.load_depth = False
-
-        else:
-            self.load_depth = self.check_depth()
 
         self.full_res_shape = (968, 608)
         self.side_map = {"2": 2, "3": 3, "l": 2, "r": 3}
@@ -175,7 +172,7 @@ class UCanyonDataset(data.Dataset):
 
         self.preprocess(inputs, color_aug)
 
-        if self.load_depth or self.is_train:
+        if self.load_depth:
             depth_gt = self.get_depth(folder, frame_index, side, do_flip)
             inputs["depth_gt"] = np.expand_dims(depth_gt, 0)
             inputs["depth_gt"] = torch.from_numpy(inputs["depth_gt"].astype(np.float32))

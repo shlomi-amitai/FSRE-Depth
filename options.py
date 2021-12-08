@@ -19,6 +19,13 @@ class Options:
                                  help="log directory",
                                  default=os.path.join(PROJECT_DIR, "tmp"))
         # TRAINING options
+        self.parser.add_argument("--use_depth",
+                                 action="store_true",
+                                 default=False)
+        self.parser.add_argument("--load_depth",
+                                 action="store_true",
+                                 default=False)                                 
+                                 
         self.parser.add_argument("--model_name",
                                  type=str,
                                  default='full_res18_192x640',
