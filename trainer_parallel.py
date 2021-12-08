@@ -99,7 +99,7 @@ class TrainerParallel(nn.Module):
                 raise Exception("invalid frame_ids")
 
             if pose_inputs.shape[3] > 640:
-                pose_inputs = F.interpolate(pose_inputs, size=(192, 640), mode='bilinear')
+                pose_inputs = F.interpolate(pose_inputs, size=(480, 640), mode='bilinear')
             pose_features = self.models['pose_encoder'](pose_inputs)
             axisangle, translation = self.models['pose']([pose_features])
             outputs[("axisangle", frame_id)] = axisangle
